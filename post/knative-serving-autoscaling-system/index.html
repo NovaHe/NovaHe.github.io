@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
-  <title>Knative 扩缩容系统 - Nova - NovaHe&#39;blog</title>
+  <title>Knative 扩缩容系统 - Nova&#39;blog - 专注于kubernetes knative serverless 云原生技术.</title>
   <meta name="renderer" content="webkit" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
 
@@ -63,7 +63,7 @@ Knative Serving 扩缩容系统的组件
 ">
 <meta itemprop="datePublished" content="2021-02-24T23:32:15+08:00" />
 <meta itemprop="dateModified" content="2021-02-24T23:32:15+08:00" />
-<meta itemprop="wordCount" content="2815">
+<meta itemprop="wordCount" content="2817">
 
 
 
@@ -208,7 +208,7 @@ Knative Serving 扩缩容系统的组件
 <li>扩缩容和冷启动时的控制流和数据流</li>
 </ul>
 <h2 id="组件">组件</h2>
-<p>在autoscaling 系统中，系统整体由一些物理和逻辑组件组成，了解各个组件是什么，它们在哪里部署以及它们在做什么，将极大地帮助我们理解控制流和数据流。文章提到的组件可能做的事情比这里概述的要多，但本文档只概述该组件自动放缩的部分。</p>
+<p>autoscaling 系统由一些物理和逻辑组件组成，了解各个组件是什么，它们在哪里部署以及它们在做什么，将极大地帮助我们理解控制流和数据流。文章提到的组件可能做的事情比这里概述的要多，但本文档只概述该组件自动放缩的部分。</p>
 <h3 id="1-queue-proxy">1. queue-proxy</h3>
 <p><code>queue-proxy</code> 是 一个伴随着用户容器运行的 Sidecar 容器，跟用户容器部署在同一个 Pod 中。发送到应用程序实例的每个请求都首先通过<code>queue-proxy</code>，因此称其名称为<code>proxy</code>。</p>
 <p><code>queue-proxy</code> 的主要作用是统计和限制到达业务容器的请求并发量，当对一个 Revision 设置了并发量之后（比如设置了5），<code>queue-proxy</code> 会确保不会同一时间有超过5个请求打到业务容器。当有超过5个请求到来时，<code>queue-proxy</code>会先把请求暂存在自己的队列 <code>queue</code> 里，（这也是为什么名字里有个 queue的缘故）。<code>queue-proxy</code> 同时会统计进来的请求量，同时会通过指定端口提供平均并发量和 rps（每秒请求量）</p>
@@ -249,14 +249,14 @@ Knative Serving 扩缩容系统的组件
 <p>SKS 有两种模式：<code>proxy</code>和 <code>serve</code></p>
 <ul>
 <li><code>serve</code> 模式： <code>public service</code> 后端 endpoints 跟 <code>private service</code>一样， 所有流量都会直接指向 <code>revision</code> 对应的 pod。</li>
-<li><code>proxy</code> 模式： <code>public service</code> 后端 endpoints 指向的是 系统中 <code>Activator</code> 对应的pod地址，所有流量都会流经 <code>activators</code>。</li>
+<li><code>proxy</code> 模式： <code>public service</code> 后端 endpoints 指向的是 系统中 <code>activator</code> 对应的pod地址，所有流量都会流经 <code>activators</code>。</li>
 </ul>
 <h3 id="metric">Metric</h3>
 <p><strong>API:</strong> <code>metrics.autoscaling.internal.knative.dev</code></p>
 <p>Metric 本质上是autoscaler收集器的外部API，控制那个service需要拉取指标，怎么聚合数据。</p>
 <p>默认情况下，指标是根据PodAutoscalers自动创建的。</p>
 <h3 id="decider">Decider</h3>
-<p>API：仅今天存在于内存中。仅出于完整性考虑。</p>
+<p>Decider是一种资源，它观察<code>revision</code>的请求负载并建议运行pod副本个数。</p>
 <h2 id="数据流">数据流</h2>
 <p>下面我们看三种常见情况的数据流向，把上面的组件和API串联起来</p>
 <h3 id="1-扩缩容稳定状态">1. 扩缩容（稳定状态）</h3>
