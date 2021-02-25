@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>kubernetes on nova&#39;s blog</title>
+    <link>https://novahe.github.io/categories/kubernetes/</link>
+    <description>Recent content in kubernetes on nova&#39;s blog</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en</language>
+    <lastBuildDate>Tue, 23 Feb 2021 01:06:21 +0800</lastBuildDate><atom:link href="https://novahe.github.io/categories/kubernetes/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Per Reconciler leader Election[译]</title>
+      <link>https://novahe.github.io/post/per-reconciler-leader-election/</link>
+      <pubDate>Tue, 23 Feb 2021 01:06:21 +0800</pubDate>
+      
+      <guid>https://novahe.github.io/post/per-reconciler-leader-election/</guid>
+      <description>&lt;p&gt;Kubernetes controllers 不支持横向扩展，多个controller同时对一个资源&lt;code&gt;reconcile&lt;/code&gt;时，会导致资源冲突或相互干扰，在knative中为了保证组件的高可用，减少传统lease机制带来的故障转移时间。提出了新的解决思路：当多个controller 同时存在时，每个controller只对自己管辖范围内的资源进行reconcile，这也是标题的来源&lt;code&gt;Per Reconciler leader Election&lt;/code&gt;：每个 controller进行reconcile时，提前感知是不是当前资源的&lt;code&gt;&amp;quot;leader&amp;quot;&lt;/code&gt;&lt;/p&gt;</description>
+    </item>
+    
+  </channel>
+</rss>

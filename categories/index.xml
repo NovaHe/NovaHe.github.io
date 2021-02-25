@@ -1,11 +1,20 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>Categories on Nova - A super concise theme for Hugo</title>
+    <title>Categories on nova&#39;s blog</title>
     <link>https://novahe.github.io/categories/</link>
-    <description>Recent content in Categories on Nova - A super concise theme for Hugo</description>
+    <description>Recent content in Categories on nova&#39;s blog</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en</language>
-    <copyright>NovaHe</copyright><atom:link href="https://novahe.github.io/categories/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Wed, 24 Feb 2021 23:32:15 +0800</lastBuildDate><atom:link href="https://novahe.github.io/categories/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>knative</title>
+      <link>https://novahe.github.io/categories/knative/</link>
+      <pubDate>Wed, 24 Feb 2021 23:32:15 +0800</pubDate>
+      
+      <guid>https://novahe.github.io/categories/knative/</guid>
+      <description></description>
+    </item>
+    
   </channel>
 </rss>

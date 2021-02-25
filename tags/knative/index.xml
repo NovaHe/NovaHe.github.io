@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>nova&#39;s blog</title>
-    <link>https://novahe.github.io/</link>
-    <description>Recent content on nova&#39;s blog</description>
+    <title>knative on nova&#39;s blog</title>
+    <link>https://novahe.github.io/tags/knative/</link>
+    <description>Recent content in knative on nova&#39;s blog</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en</language>
-    <lastBuildDate>Wed, 24 Feb 2021 23:32:15 +0800</lastBuildDate><atom:link href="https://novahe.github.io/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Wed, 24 Feb 2021 23:32:15 +0800</lastBuildDate><atom:link href="https://novahe.github.io/tags/knative/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>Knative 扩缩容系统</title>
       <link>https://novahe.github.io/post/knative-serving-autoscaling-system/</link>

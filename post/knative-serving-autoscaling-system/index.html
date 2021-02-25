@@ -1,0 +1,503 @@
+<!doctype html>
+<html lang="en">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    
+
+    <title>Knative 扩缩容系统 | nova&#39;s blog</title>
+    <meta property="og:title" content="Knative 扩缩容系统 - nova&#39;s blog">
+    <meta property="og:type" content="article">
+        
+    <meta property="article:published_time" content='2021-02-24T23:32:15&#43;08:00'>
+        
+        
+    <meta property="article:modified_time" content='2021-02-24T23:32:15&#43;08:00'>
+        
+    <meta name="Keywords" content="golang,kubernetes,serverless,云原生技术">
+    <meta name="description" content="Knative 扩缩容系统">
+        
+    <meta name="author" content="NovaHe">
+    <meta property="og:url" content="https://novahe.github.io/post/knative-serving-autoscaling-system/">
+    <link rel="shortcut icon" href='/favicon.ico'  type="image/x-icon">
+
+    <link rel="stylesheet" href='/css/normalize.css'>
+    <link rel="stylesheet" href='/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    
+    
+    
+    
+    
+        <link rel="stylesheet" href='/css/douban.css'>
+    
+        <link rel="stylesheet" href='/css/other.css'>
+    
+</head>
+
+
+<body>
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://novahe.github.io/">
+                        nova&#39;s blog
+                    </a>
+                
+                <p class="description">专注于kubernetes knative serverless 云原生技术</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://novahe.github.io/">首页</a>
+                    
+                    <a  href="https://novahe.github.io/tools/" title="工具">工具</a>
+                    
+                    <a  href="https://novahe.github.io/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://novahe.github.io/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#组件">组件</a>
+      <ul>
+        <li><a href="#1-queue-proxy">1. queue-proxy</a></li>
+        <li><a href="#2-activator">2. Activator</a></li>
+        <li><a href="#3-autoscaler">3. Autoscaler</a></li>
+      </ul>
+    </li>
+    <li><a href="#api-关键数据结构">API 关键数据结构</a>
+      <ul>
+        <li><a href="#podautoscaler-pakpa">PodAutoscaler (PA,KPA)</a></li>
+        <li><a href="#serverlessservices-sks">ServerlessServices (SKS)</a></li>
+        <li><a href="#metric">Metric</a></li>
+        <li><a href="#decider">Decider</a></li>
+      </ul>
+    </li>
+    <li><a href="#数据流">数据流</a>
+      <ul>
+        <li><a href="#1-扩缩容稳定状态">1. 扩缩容（稳定状态）</a></li>
+        <li><a href="#2-缩容到零">2. 缩容到零</a></li>
+        <li><a href="#3-冷启动从零开始扩容">3. 冷启动（从零开始扩容）</a></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">Knative 扩缩容系统</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2021年2月24日
+        </date>
+        
+        <div class="post-meta">
+            <span>|</span>
+            
+            <span class="meta-category"><a href='/categories/knative'>knative</a></span>
+            
+        </div>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="post-content">
+            <p>本文基于官方文档<a href="https://github.com/knative/serving/blob/master/docs/scaling/SYSTEM.md">Knative Serving Autoscaling System</a> 概述Knative 扩缩容系统的设计原理及实现细节</p>
+<p>主要从以下三个方面叙述：</p>
+<ul>
+<li>Knative Serving 扩缩容系统的组件</li>
+<li>组件涉及的API</li>
+<li>扩缩容和冷启动时的控制流和数据流</li>
+</ul>
+<h2 id="组件">组件</h2>
+<p>在autoscaling 系统中，整体由物理和逻辑一些组件组成，了解各个组件是什么，它们在哪里部署以及它们在做什么，将极大地帮助我们理解控制流和数据流。当然提到的组件可能做的事情比这里概述的要多，但本文档只概述该组件自动放缩的部分。</p>
+<h3 id="1-queue-proxy">1. queue-proxy</h3>
+<p><code>queue-proxy</code> 是 一个伴随着用户容器运行的 Sidecar 容器，跟用户容器部署在同一个 Pod 中。发送到应用程序实例的每个请求都首先通过<code>queue-proxy</code>，因此称其名称为<code>proxy</code>。</p>
+<p><code>queue-proxy</code> 的主要作用是统计和限制到达业务容器的请求并发量，当对一个 Revision 设置了并发量之后（比如设置了5），<code>queue-proxy</code> 会确保不会同一时间有超过5个请求打到业务容器。当有超过5个请求到来时，<code>queue-proxy</code>会先把请求暂存在自己的队列 <code>queue</code> 里，（这也是为什么名字里有个 queue的缘故）。<code>queue-proxy</code> 同时会统计进来的请求量，同时会通过指定端口提供平均并发量和 rps（每秒请求量）</p>
+<h3 id="2-activator">2. Activator</h3>
+<p><code>Activator</code> 是整个系统中所用应用共享的deployment，是可以扩缩容的，主要目的是缓存请求和上报请求指标给<code>autoscaler</code></p>
+<p><code>Activator</code> 主要作用在从零启动和缩容到零的过程，能根据请求量来对请求进行负载均衡。当某个 <code>revision</code> 实例缩容到零后，请求先经过 <code>Activator</code> 而不是直接到 <code>revision</code>的实例。 当请求访问个<code>revision</code>时，<code>activator</code> 会缓存这这些请求，同时携带请求指标（请求并发数）去触发 <code>Autoscaler</code>扩容实例，当实例 ready后，<code>Activator</code> 才会将它缓存的请求转发出去到新的实例中。同时为了避免已存在实例过载，<code>Activator</code> 还会充当一个负载均衡器的作用，根据请求量决定转发到哪个实例（通过将请求分发到后端所有的Pod上，而不是他们超过设置的负载并发量）。 autoscaling系统会根据不同的情况来决定是否让<code>Activator</code>缓冲并转发请求 ，当一个应用系统的deployment中有足够多的pod实例时，<code>Activator</code> 将不再转发请求，请求会直接打到 <code>revision</code> 来降低网络性能开销。</p>
+<p>跟 <code>queue-proxy</code> 是<code>Autoscaler</code>被动到指定端口拉取指标不同。<code>Activator</code> 通过 websocket长连接主动上报指标给 <code>autoscaler</code>，这样就能尽可能的减少冷启动时延。</p>
+<h3 id="3-autoscaler">3. Autoscaler</h3>
+<p><code>Autoscaler</code> 是一个单独的pod，它由三部分组成：</p>
+<ul>
+<li>PodAutoscaler reconciler</li>
+<li>Collector</li>
+<li>Decider</li>
+</ul>
+<p><code>PodAutoscaler reconciler</code> 会监测 <code>PodAutoscaler</code>（KPA）的变更，然后交由 <code>Collector</code> 和 <code>Decider</code> 处理</p>
+<p><code>Collector</code> 会从<code>queue-proxy</code>收集每个实例的指标，然后汇总得到整个系统的指标。为了实现扩缩容，会搜集所有应用实例的样本，并将收集到的样本反映到整个集群。</p>
+<p><code>Decider</code> 得到指标之后，通过改变应用的deployment的副本数，来决定多少个Pod 被扩容出来。简单的计算公式如下：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go">want = concurrencyInSystem<span style="color:#000;font-weight:bold">/</span>targetConcurrencyPerInstance
+</code></pre></td></tr></table>
+</div>
+</div><p>另外，扩缩容的量也会受到 <code>Revision</code> 中最大最小实例数的限制。同时 <code>Autoscaler</code> 还会计算当前系统中剩余多少突发请求容量（可扩缩容多少实例）从而决定<code>Activator</code> 是否从数据路径上拿走。</p>
+<h2 id="api-关键数据结构">API 关键数据结构</h2>
+<h3 id="podautoscaler-pakpa">PodAutoscaler (PA,KPA)</h3>
+<p><strong>API:</strong> <code>podautoscalers.autoscaling.internal.knative.dev</code></p>
+<p><code>PodAutoscaler</code> 是对扩缩容的一个抽象，简写是 KPA 或 PA ，默认实现是Knative Pod自动缩放器（KPA）。还有通过一个适配器实现Kubernetes的HPA，每个 <code>revision</code>会对应生成一个 <code>PodAutoscaler</code>。</p>
+<h3 id="serverlessservices-sks">ServerlessServices (SKS)</h3>
+<p><strong>API:</strong> <code>serverlessservices.networking.internal.knative.dev</code></p>
+<p><code>ServerlessServices</code> 是 <code>KPA</code> 产生的，一个 <code>KPA</code> 生成一个 <code>SKS</code>，<code>SKS</code> 是对 k8s service 之上的一个抽象，
+主要是用来控制数据流是直接流向服务 <code>revision</code>（实例数不为零） 还是经过 <code>Activator</code>（实例数为0）。</p>
+<p>对于每个 <code>revision</code>，会对应生成两个k8s service ，一个<code>public service</code>，一个 <code>private service</code>.</p>
+<p><code>private service</code> 是标准的 k8s service，通过label selector 来筛选对应的deploy 产生的pod，即 svc 对应的 endpoints 由 k8s 自动管控。</p>
+<p><code>public service</code> 是不受 k8s 管控的，它没有 label selector，不会像 <code>private service</code> 一样 自动生成 endpoints。<code>public service</code> 对应的 endpoints由 Knative <code>SKS reconciler</code> 来控制。</p>
+<p>SKS 有两种模式：<code>proxy</code>和 <code>serve</code></p>
+<ul>
+<li><code>serve</code> 模式： <code>public service</code> 后端 endpoints 跟 <code>private service</code>一样， 所有流量都会直接指向 <code>revision</code> 对应的 pod。</li>
+<li><code>proxy</code> 模式： <code>public service</code> 后端 endpoints 指向的是 系统中 <code>Activator</code> 对应的pod地址，所有流量都会流经 <code>activators</code>。</li>
+</ul>
+<h3 id="metric">Metric</h3>
+<p><strong>API:</strong> <code>metrics.autoscaling.internal.knative.dev</code></p>
+<p>Metric 本质上是autoscaler收集器的外部API，控制那个service需要拉取指标，怎么聚合数据。</p>
+<p>默认情况下，指标是根据PodAutoscalers自动创建的。</p>
+<h3 id="decider">Decider</h3>
+<p>API：仅今天存在于内存中。仅出于完整性考虑。</p>
+<h2 id="数据流">数据流</h2>
+<p>下面我们看三种常见情况的数据流向，把上面的组件和API串联起来</p>
+<h3 id="1-扩缩容稳定状态">1. 扩缩容（稳定状态）</h3>
+<p>
+        <img class="mx-auto" alt="scale-up-down" src="https://cdn.jsdelivr.net/gh/NovaHe/images@master/img/scale-up-down.png" />   
+    </p>
+<p><strong>扩缩容（稳定状态）流程如下：</strong></p>
+<ul>
+<li>
+<p>请求通过 <code>ingress</code> 路由到 <code>public service</code> ，此时 <code>public service</code> 对应的 endpoints 是 revision 对应的 pod</p>
+</li>
+<li>
+<p>autoscaler<code>会定不断抓取</code>queue-proxy<code>获取</code>revision<code> 活跃实例的指标，并不断调整 revision 实例个数。 当请求流到系统中时，抓取的指标也随之动态变化，</code>autoscaler` 会根据当前最新的请求指标确定扩缩容比例。</p>
+</li>
+<li>
+<p><code>SKS</code> 会监控 <code>private service</code> 的状态，保持 <code>public service</code> 的 endpoints 与 <code>private service</code> 一致 。</p>
+</li>
+</ul>
+<h3 id="2-缩容到零">2. 缩容到零</h3>
+<p>
+        <img class="mx-auto" alt="scale-to-0" src="https://cdn.jsdelivr.net/gh/NovaHe/images@master/img/scale-to-0.png" />   
+    </p>
+<p><strong>缩容到零 流程如下：</strong></p>
+<ul>
+<li>
+<p><code>autoScaler</code> 不断通过 <code>queue-proxy</code> 获取 <code>revision</code> 实例的请求指标（1）</p>
+</li>
+<li>
+<p>一旦系统中某个 <code>revision</code> 不再接收到请求（2）（此时 <code>Activator</code> 和 <code>queue-proxy</code> 收到的请求数都为 0）</p>
+</li>
+<li>
+<p><code>Decider</code> 通过计算后（3），确定出当前所需的实例数为 0（4.2）。通过 <code>PodAutoscaler</code> 修改 revision 对应 Deployment 的 实例数</p>
+</li>
+<li>
+<p>在系统删掉 <code>revision</code> 最后一个 Pod 之前，会先将 <code>activator</code> 加到 数据流路径中。<code>autoscaler</code> 触发 <code>SKS</code> 变为 <code>proxy</code> 模式（4.1），此时 <code>SKS</code> 的 <code>public service</code> 后端的endpoints 变为 <code>activator</code> 的IP，所有的流量都直接导到 <code>activator</code>（6.2）</p>
+</li>
+<li>
+<p>此时，如果宽限期（可通过_<code>scale-to-zero-grace-period</code>_进行配置）内依然没有流量进来，则<code>revision</code>的最后一个pod将被删除（5），至此<code>revision</code>已成功缩放为零。</p>
+</li>
+</ul>
+<h3 id="3-冷启动从零开始扩容">3. 冷启动（从零开始扩容）</h3>
+<p>
+        <img class="mx-auto" alt="scale-from-0" src="https://cdn.jsdelivr.net/gh/NovaHe/images@master/img/scale-from-0.png" />   
+    </p>
+<p><strong>冷启动 流程如下：</strong></p>
+<p>如果<code>revision</code>缩放为零，并且系统中有一个试图达到该<code>revision</code>的请求，则系统需要将其扩容。当 <code>SKS</code> 在 <code>proxy</code> 模式，流量会直接请求到 <code>activator</code>(1) 。<code>activator</code> 会统计请求量并将 指标主动上报到 <code>autoscaler</code>（2.1）， 同时<code>activator</code> 会缓存请求，并 watch <code>SKS</code> 的 <code>private service</code>， 直到新的endpoints出现（2.2）。</p>
+<p><code>autoscaler</code> 收到 <code>activator</code> 发送的指标后，会立即启动扩容的逻辑（3）。这个过程的得出的结论是至少一个Pod要被创造出来（4），<code>AutoScaler</code> 会修改 <code>revision</code> 对应 <code>deployment</code> 的副本数为为N（N&gt;0）（5.1）,<code>AutoScaler</code> 同时会将 <code>SKS</code> 的状态置为 <code>serve</code> 模式，流量会直接到 <code>revision</code> 对应的 pod上（5.2）。</p>
+<p><code>activator</code> 看到 <code>private service</code> 对应的endpoints的出现后开始进行探测，一旦探测(健康检查)通过，<code>activator</code> 会将之前缓存的请求转发到健康的实例上，并用于路由我们缓冲的请求以及在此期间到达的所有其他请求（8.2），最终 <code>revison</code> 完成了冷启动（从零扩容）。</p>
+<h4 id="参考">参考</h4>
+<p><a href="https://github.com/knative/serving/blob/master/docs/scaling/SYSTEM.md">Knative Serving Autoscaling System</a></p>
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://novahe.github.io/">NovaHe</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://novahe.github.io/post/knative-serving-autoscaling-system/">https://novahe.github.io/post/knative-serving-autoscaling-system/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/tags/autoscaling'>autoscaling</a></li>
+                
+                <li><a href='/tags/knative'>knative</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "NovaHe/images"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2021 <a href="https://novahe.github.io/">nova&#39;s blog By NovaHe</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+    <script src='/js/douban.js'></script>
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://novahe.github.io/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://novahe.github.io/">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://novahe.github.io/post/knative-serving-autoscaling-system/" title="Knative 扩缩容系统">Knative 扩缩容系统</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="" title="" target="_blank" style="color:red">
+                
+                    
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+    <li><a href="https://novahe.github.io/categories/knative/">knative (1)</a></li>
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://novahe.github.io/tags/autoscaling/">autoscaling</a>
+    
+    <a href="https://novahe.github.io/tags/knative/">knative</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://novahe.github.io/" title="nova&#39;s blog">nova&#39;s blog</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://novahe.github.io/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
