@@ -1,0 +1,2 @@
+User-agent: *
+Sitemap: https://novahe.github.io/sitemap.xml
