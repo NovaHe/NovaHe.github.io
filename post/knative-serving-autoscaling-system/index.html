@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
-  <title>Knative 扩缩容系统 - Nova&#39;blog - 专注于kubernetes knative serverless 云原生技术.</title>
+  <title>Knative 扩缩容系统 - Nova&#39;blog - 专注于Kubernetes Knative Serverless 云原生技术.</title>
   <meta name="renderer" content="webkit" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
 
@@ -16,9 +16,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="#f8f5ec">
 
 
-<meta name="author" content="NovaHe" /><meta name="description" content="本文基于官方文档Knative Serving Autoscaling System 概述Knative 扩缩容系统的设计原理及实现细节
-主要从以下三个方面叙述：
- Knative Serving 扩缩容系统的组件 组件涉及的API 扩缩容和冷启动时的控制流和数据流 " /><meta name="keywords" content="Hugo, theme, even" />
+<meta name="author" content="NovaHe" /><meta name="description" content="扩缩容系统是Serverless系统中关键的技术点之一，Knative可以说在这方面下足了功夫，本文介绍Knative扩缩容系统的设计原理及实现细节。
+全文主要从以下三个方面叙述：
+ Knative Serving 扩缩容系统的组件 组件涉及的API 冷启动和扩缩容的控制流、数据流 " /><meta name="keywords" content="Hugo, theme, even" />
 
 
 
@@ -42,40 +42,40 @@
 
 
 <meta property="og:title" content="Knative 扩缩容系统" />
-<meta property="og:description" content="本文基于官方文档Knative Serving Autoscaling System 概述Knative 扩缩容系统的设计原理及实现细节
-主要从以下三个方面叙述：
+<meta property="og:description" content="扩缩容系统是Serverless系统中关键的技术点之一，Knative可以说在这方面下足了功夫，本文介绍Knative扩缩容系统的设计原理及实现细节。
+全文主要从以下三个方面叙述：
 
 Knative Serving 扩缩容系统的组件
 组件涉及的API
-扩缩容和冷启动时的控制流和数据流
+冷启动和扩缩容的控制流、数据流
 " />
 <meta property="og:type" content="article" />
 <meta property="og:url" content="https://novahe.github.io/post/knative-serving-autoscaling-system/" />
 <meta property="article:published_time" content="2021-02-24T23:32:15+08:00" />
 <meta property="article:modified_time" content="2021-02-24T23:32:15+08:00" />
 <meta itemprop="name" content="Knative 扩缩容系统">
-<meta itemprop="description" content="本文基于官方文档Knative Serving Autoscaling System 概述Knative 扩缩容系统的设计原理及实现细节
-主要从以下三个方面叙述：
+<meta itemprop="description" content="扩缩容系统是Serverless系统中关键的技术点之一，Knative可以说在这方面下足了功夫，本文介绍Knative扩缩容系统的设计原理及实现细节。
+全文主要从以下三个方面叙述：
 
 Knative Serving 扩缩容系统的组件
 组件涉及的API
-扩缩容和冷启动时的控制流和数据流
+冷启动和扩缩容的控制流、数据流
 ">
 <meta itemprop="datePublished" content="2021-02-24T23:32:15+08:00" />
 <meta itemprop="dateModified" content="2021-02-24T23:32:15+08:00" />
-<meta itemprop="wordCount" content="2817">
+<meta itemprop="wordCount" content="3483">
 
 
 
 <meta itemprop="keywords" content="autoscaling,knative," />
 <meta name="twitter:card" content="summary"/>
 <meta name="twitter:title" content="Knative 扩缩容系统"/>
-<meta name="twitter:description" content="本文基于官方文档Knative Serving Autoscaling System 概述Knative 扩缩容系统的设计原理及实现细节
-主要从以下三个方面叙述：
+<meta name="twitter:description" content="扩缩容系统是Serverless系统中关键的技术点之一，Knative可以说在这方面下足了功夫，本文介绍Knative扩缩容系统的设计原理及实现细节。
+全文主要从以下三个方面叙述：
 
 Knative Serving 扩缩容系统的组件
 组件涉及的API
-扩缩容和冷启动时的控制流和数据流
+冷启动和扩缩容的控制流、数据流
 "/>
 
 <!--[if lte IE 9]>
@@ -178,7 +178,7 @@ Knative Serving 扩缩容系统的组件
             <li><a href="#3-autoscaler">3. Autoscaler</a></li>
           </ul>
         </li>
-        <li><a href="#api-关键数据结构">API 关键数据结构</a>
+        <li><a href="#api">API</a>
           <ul>
             <li><a href="#podautoscaler-pakpa">PodAutoscaler (PA,KPA)</a></li>
             <li><a href="#serverlessservices-sks">ServerlessServices (SKS)</a></li>
@@ -193,6 +193,11 @@ Knative Serving 扩缩容系统的组件
             <li><a href="#3-冷启动从零开始扩容">3. 冷启动（从零开始扩容）</a></li>
           </ul>
         </li>
+        <li><a href="#总结">总结</a>
+          <ul>
+            <li></li>
+          </ul>
+        </li>
       </ul>
     </li>
   </ul>
@@ -200,63 +205,72 @@ Knative Serving 扩缩容系统的组件
   </div>
 </div>
     <div class="post-content">
-      <p>本文基于官方文档<a href="https://github.com/knative/serving/blob/master/docs/scaling/SYSTEM.md">Knative Serving Autoscaling System</a> 概述Knative 扩缩容系统的设计原理及实现细节</p>
-<p>主要从以下三个方面叙述：</p>
+      <p><strong>扩缩容系统</strong>是Serverless系统中关键的技术点之一，Knative可以说在这方面下足了功夫，本文介绍Knative扩缩容系统的设计原理及实现细节。</p>
+<p>全文主要从以下三个方面叙述：</p>
 <ul>
 <li>Knative Serving 扩缩容系统的组件</li>
 <li>组件涉及的API</li>
-<li>扩缩容和冷启动时的控制流和数据流</li>
+<li>冷启动和扩缩容的控制流、数据流</li>
 </ul>
 <h2 id="组件">组件</h2>
-<p>autoscaling 系统由一些物理和逻辑组件组成，了解各个组件是什么，它们在哪里部署以及它们在做什么，将极大地帮助我们理解控制流和数据流。文章提到的组件可能做的事情比这里概述的要多，但本文档只概述该组件自动放缩的部分。</p>
+<p><strong>扩缩容系统</strong>由一些物理组件和逻辑组件组成，了解各个组件的工作流程，将帮助我们理解控制流和数据流。</p>
+<p>本文提到的组件可能做的事情比这里概述的要多，但本文档只概述该组件自动放缩的部分。</p>
 <h3 id="1-queue-proxy">1. queue-proxy</h3>
 <p><code>queue-proxy</code> 是 一个伴随着用户容器运行的 Sidecar 容器，跟用户容器部署在同一个 Pod 中。发送到应用程序实例的每个请求都首先通过<code>queue-proxy</code>，因此称其名称为<code>proxy</code>。</p>
-<p><code>queue-proxy</code> 的主要作用是统计和限制到达业务容器的请求并发量，当对一个 Revision 设置了并发量之后（比如设置了5），<code>queue-proxy</code> 会确保不会同一时间有超过5个请求打到业务容器。当有超过5个请求到来时，<code>queue-proxy</code>会先把请求暂存在自己的队列 <code>queue</code> 里，（这也是为什么名字里有个 queue的缘故）。<code>queue-proxy</code> 同时会统计进来的请求量，同时会通过指定端口提供平均并发量和 rps（每秒请求量）</p>
+<p><code>queue-proxy</code> 的主要作用是统计和控制到达业务容器的请求并发量，当对一个 Revision 设置了并发量之后（比如设置了5），<code>queue-proxy</code> 会确保同一时间不会有超过5个请求打到业务容器。当有超过5个请求到来时，<code>queue-proxy</code>会先把请求暂存在自己的队列 <code>queue</code> 里，（这也是为什么名字里有个queue的由来）。<code>queue-proxy</code> 会统计进来的请求量，同时会通过指定端口提供平均并发量和 rps（每秒请求量）。</p>
 <h3 id="2-activator">2. Activator</h3>
-<p><code>Activator</code> 是整个系统中所用应用共享的deployment，是可以扩缩容的，主要目的是缓存请求和上报请求指标给<code>autoscaler</code></p>
-<p><code>Activator</code> 主要作用在从零启动和缩容到零的过程，能根据请求量来对请求进行负载均衡。当某个 <code>revision</code> 实例缩容到零后，请求先经过 <code>Activator</code> 而不是直接到 <code>revision</code>的实例。 当请求访问个<code>revision</code>时，<code>activator</code> 会缓存这这些请求，同时携带请求指标（请求并发数）去触发 <code>Autoscaler</code>扩容实例，当实例 ready后，<code>Activator</code> 才会将它缓存的请求转发出去到新的实例中。同时为了避免已存在实例过载，<code>Activator</code> 还会充当一个负载均衡器的作用，根据请求量决定转发到哪个实例（通过将请求分发到后端所有的Pod上，而不是他们超过设置的负载并发量）。 autoscaling系统会根据不同的情况来决定是否让<code>Activator</code>缓冲并转发请求 ，当一个应用系统的deployment中有足够多的pod实例时，<code>Activator</code> 将不再转发请求，请求会直接打到 <code>revision</code> 来降低网络性能开销。</p>
-<p>跟 <code>queue-proxy</code> 是<code>Autoscaler</code>被动到指定端口拉取指标不同。<code>Activator</code> 通过 websocket长连接主动上报指标给 <code>autoscaler</code>，这样就能尽可能的减少冷启动时延。</p>
+<p><code>Activator</code> 是整个系统中所用应用共享的k8s deployment，是可扩展的，主要目的是缓存请求和上报请求指标给<code>Autoscaler</code></p>
+<p><code>Activator</code> 主要作用在<strong>冷启动</strong>（从零启动）和<strong>缩容到零</strong>的过程和根据请求量来对请求进行负载均衡。</p>
+<p>当某个 <code>Revision</code> 实例缩容到零后，请求先经过 <code>Activator</code> 而不是直接到 <code>Revision</code>的Pod实例。当请求访问个<code>Revision</code>时，<code>Activator</code> 会缓存这这些请求，同时携带请求指标（请求并发数）去触发 <code>Autoscaler</code>扩容实例，当实例 ready后，<code>Activator</code> 才会将它缓存的请求转发到新的实例中；同时为了避免已存在实例过载，<code>Activator</code> 还会充当一个负载均衡器的作用，根据请求量决定转发到哪个实例（不超过设置的负载并发量将请求分发到后端所有的Pod上）。 <strong>扩缩容系统</strong>会根据不同的情况来决定是否让<code>Activator</code>缓冲并转发请求 ，当一个应用系统中有足够多的Pod实例时，<code>Activator</code> 将不再转发请求，处于serve状态，请求会直接路由到 <code>Revision</code> 来降低网络性能开销。</p>
+<p>与 <code>queue-proxy</code> 不同的是：<code>Autoscaler</code>会主动并发现应用的pod，然后到指定端口拉取指标。而<code>Activator</code> 通过 websocket长连接主动实时上报指标给 <code>Autoscaler</code>，这样大大减少了网络通讯时延。</p>
 <h3 id="3-autoscaler">3. Autoscaler</h3>
-<p><code>Autoscaler</code> 是一个单独的pod，它由三部分组成：</p>
+<p><code>Autoscaler</code> 主要负责收集来自<code>Activator</code> 指标进行实时的扩缩容决策。它是一个单独的pod，由逻辑上的三部分组成：</p>
 <ul>
 <li>PodAutoscaler reconciler</li>
 <li>Collector</li>
 <li>Decider</li>
 </ul>
 <p><code>PodAutoscaler reconciler</code> 会监测 <code>PodAutoscaler</code>（KPA）的变更，然后交由 <code>Collector</code> 和 <code>Decider</code> 处理</p>
-<p><code>Collector</code> 会从<code>queue-proxy</code>收集每个实例的指标，然后汇总得到整个系统的指标。为了实现扩缩容，会搜集所有应用实例的样本，并将收集到的样本反映到整个集群。</p>
-<p><code>Decider</code> 得到指标之后，通过改变应用的deployment的副本数，来决定多少个Pod 被扩容出来。简单的计算公式如下：</p>
+<p><code>Collector</code> 会从<code>queue-proxy</code>收集每个实例的指标，然后汇总得到整个系统的指标。为了实现扩缩容，<code>Collector</code>会搜集所有应用实例的样本，并将收集到的样本反映到整个集群。</p>
+<p><code>Decider</code> 得到指标之后，通过改变应用的k8s deployment的副本数，来决定扩容出来多少个Pod 。</p>
+<p>简单的计算公式如下：</p>
 <div class="highlight"><div class="chroma">
 <table class="lntable"><tr><td class="lntd">
 <pre class="chroma"><code><span class="lnt">1
 </span></code></pre></td>
 <td class="lntd">
-<pre class="chroma"><code class="language-go" data-lang="go"><span class="nx">want</span> <span class="p">=</span> <span class="nx">concurrencyInSystem</span><span class="o">/</span><span class="nx">targetConcurrencyPerInstance</span>
+<pre class="chroma"><code class="language-go" data-lang="go"><span class="nx">期望的实例个数</span> <span class="p">=</span> <span class="nx">系统所需的并发数</span><span class="o">/</span><span class="nx">每个实例的并发数</span>
 </code></pre></td></tr></table>
 </div>
-</div><p>另外，扩缩容的量也会受到 <code>Revision</code> 中最大最小实例数的限制。同时 <code>Autoscaler</code> 还会计算当前系统中剩余多少突发请求容量（可扩缩容多少实例）从而决定<code>Activator</code> 是否从数据路径上拿走。</p>
-<h2 id="api-关键数据结构">API 关键数据结构</h2>
+</div><p>另外，扩缩的实例个数也会受到 <code>Revision</code> 中最大最小实例数的限制。同时 <code>Autoscaler</code> 还会计算当前系统中剩余多少突发请求容量（可扩缩容多少实例）从而决定<code>Activator</code> 是否从数据路径上拿走。</p>
+<h2 id="api">API</h2>
 <h3 id="podautoscaler-pakpa">PodAutoscaler (PA,KPA)</h3>
-<p><strong>API:</strong> <code>podautoscalers.autoscaling.internal.knative.dev</code></p>
-<p><code>PodAutoscaler</code> 是对扩缩容的一个抽象，简写是 KPA 或 PA ，默认实现是Knative Pod自动缩放器（KPA）。还有通过一个适配器实现Kubernetes的HPA，每个 <code>revision</code>会对应生成一个 <code>PodAutoscaler</code>。</p>
+<p><strong>API:</strong> <code>podAutoscalers.autoscaling.internal.knative.dev</code></p>
+<p><code>PodAutoscaler</code> 是对扩缩容的一个抽象，简写是 KPA 或 PA ，默认实现是Knative Pod自动缩放器（KPA），还有通过一个适配器实现Kubernetes的HPA，每个 <code>Revision</code>会对应生成一个 <code>PodAutoscaler</code>。</p>
 <h3 id="serverlessservices-sks">ServerlessServices (SKS)</h3>
 <p><strong>API:</strong> <code>serverlessservices.networking.internal.knative.dev</code></p>
-<p><code>ServerlessServices</code> 是 <code>KPA</code> 产生的，一个 <code>KPA</code> 生成一个 <code>SKS</code>，<code>SKS</code> 是对 k8s service 之上的一个抽象，
-主要是用来控制数据流是直接流向服务 <code>revision</code>（实例数不为零） 还是经过 <code>Activator</code>（实例数为0）。</p>
-<p>对于每个 <code>revision</code>，会对应生成两个k8s service ，一个<code>public service</code>，一个 <code>private service</code>.</p>
-<p><code>private service</code> 是标准的 k8s service，通过label selector 来筛选对应的deploy 产生的pod，即 svc 对应的 endpoints 由 k8s 自动管控。</p>
-<p><code>public service</code> 是不受 k8s 管控的，它没有 label selector，不会像 <code>private service</code> 一样 自动生成 endpoints。<code>public service</code> 对应的 endpoints由 Knative <code>SKS reconciler</code> 来控制。</p>
+<p><code>ServerlessServices</code> 是 <code>KPA</code> 产生的， <code>KPA</code> 和 <code>SKS</code>一一对应，<code>SKS</code> 是对 k8s service 之上的一个抽象，
+主要是用来控制数据流是直接流向服务 <code>Revision</code>（实例数不为零） 还是经过 <code>Activator</code>（实例数为0）。</p>
+<p>对于每个 <code>Revision</code>，会对应生成两个k8s service ：<code>Public service</code>和<code>Private service</code></p>
+<ul>
+<li>
+<p><code>Private service</code> 是标准的 k8s service，通过label selector 来筛选对应的deployment产生的Pod，即 svc 对应的 endpoints 由 k8s 自动管控。</p>
+</li>
+<li>
+<p><code>Public service</code> 是不受 k8s 管控的，没有 label selector，不会像 <code>Private service</code> 一样自动生成 endpoints。<code>Public service</code> 对应的 endpoints由 Knative <code>SKS reconciler</code> 来控制的。</p>
+</li>
+</ul>
 <p>SKS 有两种模式：<code>proxy</code>和 <code>serve</code></p>
 <ul>
-<li><code>serve</code> 模式： <code>public service</code> 后端 endpoints 跟 <code>private service</code>一样， 所有流量都会直接指向 <code>revision</code> 对应的 pod。</li>
-<li><code>proxy</code> 模式： <code>public service</code> 后端 endpoints 指向的是 系统中 <code>activator</code> 对应的pod地址，所有流量都会流经 <code>activators</code>。</li>
+<li><code>serve</code> 模式： <code>Public service</code> 后端 endpoints 跟 <code>Private service</code>一样， 所有流量都会直接指向 <code>Revision</code> 后端对应的 pod。</li>
+<li><code>proxy</code> 模式： <code>Public service</code> 后端 endpoints 指向的是 系统中 <code>Activator</code> 对应的pod地址，所有流量都会流经 <code>Activators</code>转发到<code>Revision</code>后端对应的 pod。</li>
 </ul>
 <h3 id="metric">Metric</h3>
 <p><strong>API:</strong> <code>metrics.autoscaling.internal.knative.dev</code></p>
-<p>Metric 本质上是autoscaler收集器的外部API，控制那个service需要拉取指标，怎么聚合数据。</p>
+<p>Metric 本质上是Autoscaler收集器的外部API，控制那个service需要拉取指标，怎么聚合数据。</p>
 <p>默认情况下，指标是根据PodAutoscalers自动创建的。</p>
 <h3 id="decider">Decider</h3>
-<p>Decider是一种资源，它观察<code>revision</code>的请求负载并建议运行pod副本个数。</p>
+<p>Decider 观察<code>Revision</code>的请求负载并建议运行Pod副本个数。</p>
 <h2 id="数据流">数据流</h2>
 <p>下面我们看三种常见情况的数据流向，把上面的组件和API串联起来</p>
 <h3 id="1-扩缩容稳定状态">1. 扩缩容（稳定状态）</h3>
@@ -264,13 +278,13 @@ Knative Serving 扩缩容系统的组件
 <p><strong>扩缩容（稳定状态）流程如下：</strong></p>
 <ul>
 <li>
-<p>请求通过 <code>ingress</code> 路由到 <code>public service</code> ，此时 <code>public service</code> 对应的 endpoints 是 revision 对应的 pod</p>
+<p>请求通过 <code>ingress</code> 路由到 <code>Public service</code> ，此时 <code>Public service</code> 对应的 endpoints 是 <code>Revision</code>后端的 对应的pod。</p>
 </li>
 <li>
-<p>autoscaler<code>会定不断抓取</code>queue-proxy<code>获取</code>revision<code> 活跃实例的指标，并不断调整 revision 实例个数。 当请求流到系统中时，抓取的指标也随之动态变化，</code>autoscaler` 会根据当前最新的请求指标确定扩缩容比例。</p>
+<p><code>Autoscaler</code> 会定不断抓取 <code>queue-proxy</code> 暴露的指标，从而获取 <code>Revision</code> 活跃实例数，不断调整 当前<code>Revision</code> 实例个数。当请求源源不断进入到系统中时，抓取的指标也随之动态变化，<code>Autoscaler</code> 会根据当前的请求指标确定扩缩容数量。</p>
 </li>
 <li>
-<p><code>SKS</code> 会监控 <code>private service</code> 的状态，保持 <code>public service</code> 的 endpoints 与 <code>private service</code> 一致 。</p>
+<p><code>SKS</code> 会监控 <code>Private service</code> 的状态，保持 <code>Public service</code> 的 endpoints 与 <code>Private service</code> 一致 。</p>
 </li>
 </ul>
 <h3 id="2-缩容到零">2. 缩容到零</h3>
@@ -278,27 +292,47 @@ Knative Serving 扩缩容系统的组件
 <p><strong>缩容到零 流程如下：</strong></p>
 <ul>
 <li>
-<p><code>autoScaler</code> 不断通过 <code>queue-proxy</code> 获取 <code>revision</code> 实例的请求指标（1）</p>
+<p><code>Autoscaler</code> 不断通过 <code>queue-proxy</code> 获取 <code>Revision</code> 实例的请求指标（1）</p>
 </li>
 <li>
-<p>一旦系统中某个 <code>revision</code> 不再接收到请求（2）（此时 <code>Activator</code> 和 <code>queue-proxy</code> 收到的请求数都为 0）</p>
+<p>一旦系统中某个 <code>Revision</code> 不再接收到请求（此时 <code>Activator</code> 和 <code>queue-proxy</code> 收到的请求数都为 0）（2）</p>
 </li>
 <li>
-<p><code>Decider</code> 通过计算后（3），确定出当前所需的实例数为 0（4.2）。通过 <code>PodAutoscaler</code> 修改 revision 对应 Deployment 的 实例数</p>
+<p><code>Decider</code> 通过计算后（3），确定出当前所需的实例数为 0（4.2）。通过 <code>PodAutoscaler</code> 修改 Revision 对应 Deployment 的 实例数</p>
 </li>
 <li>
-<p>在系统删掉 <code>revision</code> 最后一个 Pod 之前，会先将 <code>activator</code> 加到 数据流路径中。<code>autoscaler</code> 触发 <code>SKS</code> 变为 <code>proxy</code> 模式（4.1），此时 <code>SKS</code> 的 <code>public service</code> 后端的endpoints 变为 <code>activator</code> 的IP，所有的流量都直接导到 <code>activator</code>（6.2）</p>
+<p>在系统删掉 <code>Revision</code> 最后一个Pod之前，会先将 <code>Activator</code> 加到 数据流路径中。<code>Autoscaler</code> 触发 <code>SKS</code> 变为 <code>proxy</code> 模式（4.1），此时 <code>SKS</code> 的 <code>Public service</code> 后端的endpoints 变为 <code>Activator</code> 的IP，所有的流量都直接导到 <code>Activator</code>（6.2）</p>
 </li>
 <li>
-<p>此时，如果宽限期（可通过_<code>scale-to-zero-grace-period</code>_进行配置）内依然没有流量进来，则<code>revision</code>的最后一个pod将被删除（5），至此<code>revision</code>已成功缩放为零。</p>
+<p>此时，如果宽限期（可通过_<code>scale-to-zero-grace-period</code>_进行配置）内依然没有流量到来，则<code>Revision</code>的最后一个pod将被删除（5），至此<code>Revision</code>已成功缩放为零。</p>
 </li>
 </ul>
 <h3 id="3-冷启动从零开始扩容">3. 冷启动（从零开始扩容）</h3>
 <p><img src="https://cdn.jsdelivr.net/gh/NovaHe/images@master/img/scale-from-0.png" alt="scale-from-0"></p>
-<p><strong>冷启动 流程如下：</strong></p>
-<p>如果<code>revision</code>缩放为零，并且系统中有一个试图达到该<code>revision</code>的请求，则系统需要将其扩容。当 <code>SKS</code> 在 <code>proxy</code> 模式，流量会直接请求到 <code>activator</code>(1) 。<code>activator</code> 会统计请求量并将 指标主动上报到 <code>autoscaler</code>（2.1）， 同时<code>activator</code> 会缓存请求，并 watch <code>SKS</code> 的 <code>private service</code>， 直到新的endpoints出现（2.2）。</p>
-<p><code>autoscaler</code> 收到 <code>activator</code> 发送的指标后，会立即启动扩容的逻辑（3）。这个过程的得出的结论是至少一个Pod要被创造出来（4），<code>AutoScaler</code> 会修改 <code>revision</code> 对应 <code>deployment</code> 的副本数为为N（N&gt;0）（5.1）,<code>AutoScaler</code> 同时会将 <code>SKS</code> 的状态置为 <code>serve</code> 模式，流量会直接到 <code>revision</code> 对应的 pod上（5.2）。</p>
-<p><code>activator</code> 看到 <code>private service</code> 对应的endpoints的出现后开始进行探测，一旦探测(健康检查)通过，<code>activator</code> 会将之前缓存的请求转发到健康的实例上，并用于路由我们缓冲的请求以及在此期间到达的所有其他请求（8.2），最终 <code>revison</code> 完成了冷启动（从零扩容）。</p>
+<p><strong>冷启动（从零开始扩容） 流程如下：</strong></p>
+<p>当<code>Revision</code>缩放为零时，系统中有一个请求试图达到该<code>Revision</code>，则系统需要将其扩容。</p>
+<ul>
+<li>
+<p><code>SKS</code> 此时处于 <code>proxy</code> 模式，流量会直接请求到 <code>Activator</code>(1) 。Activator<code>会统计请求量并将指标主动上报到</code>Autoscaler<code>（2.1）， 同时</code>Activator<code>会缓存请求，并 watch</code>SKS<code>的</code>Private service`， 直到新的endpoints出现（2.2）。</p>
+</li>
+<li>
+<p><code>Autoscaler</code> 收到 <code>Activator</code> 发送的指标后，会立即启动扩容的逻辑（3）。这个过程的得出的结论是：至少一个Pod要被创造出来（4），<code>Autoscaler</code> 会修改 <code>Revision</code> 对应 Deployment 的副本数为为N（N&gt;0）（5.1），<code>Autoscaler</code> 同时会将 <code>SKS</code> 的状态置为 <code>serve</code> 模式（5.2），k8s 的Deployment资源由于副本数的变动创建一个新的Pod实例（6）</p>
+</li>
+<li>
+<p>Deployment创建Pod后更新了<code>Private service</code> 的endpoint（7），<code>Private service</code>的变化触发了sks通过reconcile的逻辑更新<code>Public service</code>  与 <code>Private service</code> 的 endpoints一致（8.1），<code>Activator</code> 看到 <code>Private service</code> 对应的endpoints的出现后开始进行探测，一旦探测(健康检查)通过，<code>Activator</code> 会将之前缓存的请求转发到健康的实例上，把缓存的请求发送到Pod实例（8.2），并用于路由我们缓冲的请求以及在此期间到达的所有其他请求，最终 <code>revison</code> 完成了冷启动（从零扩容）。</p>
+</li>
+</ul>
+<h2 id="总结">总结</h2>
+<p>Knative的扩缩容系统在演进过程中是曲折的，扩缩容流程冗长，这也是由于本身实现功能复杂导致的，该系统也存在的一些问题：</p>
+<ul>
+<li>
+<p>扩容实例过度依赖于k8s的控制面。特别是冷启动时（从零开始扩容），需要经过deployment漫长的调谐(reconcile)，代价是高昂的。社区也有讨论直接通过调用kubelet api启动Pod实例的尝试，提出了本地节点调度的方式<a href="https://github.com/knative/serving/projects/32">Scaling: Node Local Scheduling</a>。</p>
+</li>
+<li>
+<p>每一个ksvc就要创建两个service(<code>Public service</code>  与 <code>Private service</code> ) 。当应用规模过大时，两个svc要实时同步时，这个开销是很大的，社区issue里常出现性能问题，社区也在尝试用<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.15/#endpointsubset-v1-core">endpointsubset</a>使用一个svc，减少同步冗余逻辑。</p>
+</li>
+</ul>
+<p>看完全文，相信大家对Knative有了更深刻的认识，以后也会继续写一些knative的相关文章，继续学习Serverless开源实现。</p>
 <h4 id="参考">参考</h4>
 <p><a href="https://github.com/knative/serving/blob/master/docs/scaling/SYSTEM.md">Knative Serving Autoscaling System</a></p>
     </div>
@@ -333,27 +367,19 @@ Knative Serving 扩缩容系统的组件
     </footer>
   </article>
         </div>
-        <div id="gitalk-container"></div>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css" crossorigin="anonymous">
-    <script src="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js" crossorigin="anonymous"></script>
-    <script type="text/javascript">
-      var gitalk = new Gitalk({
-        id: '2021-02-24 23:32:15 \u002b0800 CST',
-        title: 'Knative 扩缩容系统',
-        clientID: 'baf805e4371bc235c6fa',
-        clientSecret: 'd3c9587e0606186a76a28e0204f5f990e416ed9a',
-        repo: 'NovaHe.github.io',
-        owner: 'NovaHe',
-        admin: ['NovaHe'],
-        body: decodeURI(location.href)
-      });
-      gitalk.render('gitalk-container');
+        
+
+  
+
+  
+    <script src="https://utteranc.es/client.js"
+            repo="NovaHe/NovaHe.github.io"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
     </script>
-    <noscript>Please enable JavaScript to view the <a href="https://github.com/gitalk/gitalk">comments powered by gitalk.</a></noscript>
-
-  
-
-  
+    <noscript>Please enable JavaScript to view the <a href="https://github.com/utterance">comments powered by utterances.</a></noscript>
 
       </div>
     </main>
