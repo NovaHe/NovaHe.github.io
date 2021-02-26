@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
-  <title>Knative 扩缩容系统 - Nova&#39;blog - 专注于Kubernetes Knative Serverless 云原生技术.</title>
+  <title>Knative 自动扩缩容系统 - Nova&#39;blog - 专注于Kubernetes Knative Serverless 云原生技术.</title>
   <meta name="renderer" content="webkit" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
 
@@ -16,9 +16,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="#f8f5ec">
 
 
-<meta name="author" content="NovaHe" /><meta name="description" content="扩缩容系统是Serverless系统中关键的技术点之一，Knative可以说在这方面下足了功夫，本文介绍Knative扩缩容系统的设计原理及实现细节。
+<meta name="author" content="NovaHe" /><meta name="description" content="自动扩缩容系统是Serverless系统中关键的技术点之一，Knative可以说在这方面下足了功夫，本文介绍Knative自动扩缩容系统的设计原理及实现细节。
 全文主要从以下三个方面叙述：
- Knative Serving 扩缩容系统的组件 组件涉及的API 冷启动和扩缩容的控制流、数据流 " /><meta name="keywords" content="Hugo, theme, even" />
+ Knative Serving 自动扩缩容系统的组件 组件涉及的API 冷启动和扩缩容的控制流、数据流 " /><meta name="keywords" content="Hugo, theme, even" />
 
 
 
@@ -41,11 +41,11 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/fancybox@3.1.20/dist/jquery.fancybox.min.css" integrity="sha256-7TyXnr2YU040zfSP+rEcz29ggW4j56/ujTPwjMzyqFY=" crossorigin="anonymous">
 
 
-<meta property="og:title" content="Knative 扩缩容系统" />
-<meta property="og:description" content="扩缩容系统是Serverless系统中关键的技术点之一，Knative可以说在这方面下足了功夫，本文介绍Knative扩缩容系统的设计原理及实现细节。
+<meta property="og:title" content="Knative 自动扩缩容系统" />
+<meta property="og:description" content="自动扩缩容系统是Serverless系统中关键的技术点之一，Knative可以说在这方面下足了功夫，本文介绍Knative自动扩缩容系统的设计原理及实现细节。
 全文主要从以下三个方面叙述：
 
-Knative Serving 扩缩容系统的组件
+Knative Serving 自动扩缩容系统的组件
 组件涉及的API
 冷启动和扩缩容的控制流、数据流
 " />
@@ -53,27 +53,27 @@ Knative Serving 扩缩容系统的组件
 <meta property="og:url" content="https://novahe.github.io/post/knative-serving-autoscaling-system/" />
 <meta property="article:published_time" content="2021-02-24T23:32:15+08:00" />
 <meta property="article:modified_time" content="2021-02-24T23:32:15+08:00" />
-<meta itemprop="name" content="Knative 扩缩容系统">
-<meta itemprop="description" content="扩缩容系统是Serverless系统中关键的技术点之一，Knative可以说在这方面下足了功夫，本文介绍Knative扩缩容系统的设计原理及实现细节。
+<meta itemprop="name" content="Knative 自动扩缩容系统">
+<meta itemprop="description" content="自动扩缩容系统是Serverless系统中关键的技术点之一，Knative可以说在这方面下足了功夫，本文介绍Knative自动扩缩容系统的设计原理及实现细节。
 全文主要从以下三个方面叙述：
 
-Knative Serving 扩缩容系统的组件
+Knative Serving 自动扩缩容系统的组件
 组件涉及的API
 冷启动和扩缩容的控制流、数据流
 ">
 <meta itemprop="datePublished" content="2021-02-24T23:32:15+08:00" />
 <meta itemprop="dateModified" content="2021-02-24T23:32:15+08:00" />
-<meta itemprop="wordCount" content="3479">
+<meta itemprop="wordCount" content="3491">
 
 
 
 <meta itemprop="keywords" content="Autoscaler,Knative," />
 <meta name="twitter:card" content="summary"/>
-<meta name="twitter:title" content="Knative 扩缩容系统"/>
-<meta name="twitter:description" content="扩缩容系统是Serverless系统中关键的技术点之一，Knative可以说在这方面下足了功夫，本文介绍Knative扩缩容系统的设计原理及实现细节。
+<meta name="twitter:title" content="Knative 自动扩缩容系统"/>
+<meta name="twitter:description" content="自动扩缩容系统是Serverless系统中关键的技术点之一，Knative可以说在这方面下足了功夫，本文介绍Knative自动扩缩容系统的设计原理及实现细节。
 全文主要从以下三个方面叙述：
 
-Knative Serving 扩缩容系统的组件
+Knative Serving 自动扩缩容系统的组件
 组件涉及的API
 冷启动和扩缩容的控制流、数据流
 "/>
@@ -153,7 +153,7 @@ Knative Serving 扩缩容系统的组件
           <article class="post">
     
     <header class="post-header">
-      <h1 class="post-title">Knative 扩缩容系统</h1>
+      <h1 class="post-title">Knative 自动扩缩容系统</h1>
 
       <div class="post-meta">
         <span class="post-time"> 2021-02-24 </span>
@@ -205,15 +205,15 @@ Knative Serving 扩缩容系统的组件
   </div>
 </div>
     <div class="post-content">
-      <p><strong>扩缩容系统</strong>是Serverless系统中关键的技术点之一，Knative可以说在这方面下足了功夫，本文介绍Knative扩缩容系统的设计原理及实现细节。</p>
+      <p><strong>自动扩缩容系统</strong>是Serverless系统中关键的技术点之一，Knative可以说在这方面下足了功夫，本文介绍Knative自动扩缩容系统的设计原理及实现细节。</p>
 <p>全文主要从以下三个方面叙述：</p>
 <ul>
-<li>Knative Serving 扩缩容系统的组件</li>
+<li>Knative Serving 自动扩缩容系统的组件</li>
 <li>组件涉及的API</li>
 <li>冷启动和扩缩容的控制流、数据流</li>
 </ul>
 <h2 id="组件">组件</h2>
-<p><strong>扩缩容系统</strong>由一些物理组件和逻辑组件组成，了解各个组件的工作流程，将帮助我们理解控制流和数据流。</p>
+<p><strong>自动扩缩容系统</strong>由一些物理组件和逻辑组件组成，了解各个组件的工作流程，将帮助我们理解控制流和数据流。</p>
 <p>本文提到的组件可能做的事情比这里概述的要多，但本文档只概述该组件自动放缩的部分。</p>
 <h3 id="1-queue-proxy">1. queue-proxy</h3>
 <p><code>queue-proxy</code> 是 一个伴随着用户容器运行的 Sidecar 容器，跟用户容器部署在同一个 Pod 中。发送到应用程序实例的每个请求都首先通过<code>queue-proxy</code>，因此称其名称为<code>proxy</code>。</p>
@@ -221,7 +221,7 @@ Knative Serving 扩缩容系统的组件
 <h3 id="2-activator">2. Activator</h3>
 <p><code>Activator</code> 是整个系统中所用应用共享的k8s deployment，是可扩展的，主要目的是缓存请求和上报请求指标给<code>Autoscaler</code></p>
 <p><code>Activator</code> 主要作用在<strong>冷启动</strong>（从零启动）和<strong>缩容到零</strong>的过程和根据请求量来对请求进行负载均衡。</p>
-<p>当某个 <code>Revision</code> 实例缩容到零后，请求先经过 <code>Activator</code> 而不是直接到 <code>Revision</code>的Pod实例。当请求访问个<code>Revision</code>时，<code>Activator</code> 会缓存这这些请求，同时携带请求指标（请求并发数）去触发 <code>Autoscaler</code>扩容实例，当实例 ready后，<code>Activator</code> 才会将它缓存的请求转发到新的实例中；同时为了避免已存在实例过载，<code>Activator</code> 还会充当一个负载均衡器的作用，根据请求量决定转发到哪个实例（不超过设置的负载并发量将请求分发到后端所有的Pod上）。 <strong>扩缩容系统</strong>会根据不同的情况来决定是否让<code>Activator</code>缓冲并转发请求 ，当一个应用系统中有足够多的Pod实例时，<code>Activator</code> 将不再转发请求，处于serve状态，请求会直接路由到 <code>Revision</code> 来降低网络性能开销。</p>
+<p>当某个 <code>Revision</code> 实例缩容到零后，请求先经过 <code>Activator</code> 而不是直接到 <code>Revision</code>的Pod实例。当请求访问个<code>Revision</code>时，<code>Activator</code> 会缓存这这些请求，同时携带请求指标（请求并发数）去触发 <code>Autoscaler</code>扩容实例，当实例 ready后，<code>Activator</code> 才会将它缓存的请求转发到新的实例中；同时为了避免已存在实例过载，<code>Activator</code> 还会充当一个负载均衡器的作用，根据请求量决定转发到哪个实例（不超过设置的负载并发量将请求分发到后端所有的Pod上）。 <strong>自动扩缩容系统</strong>会根据不同的情况来决定是否让<code>Activator</code>缓冲并转发请求 ，当一个应用系统中有足够多的Pod实例时，<code>Activator</code> 将不再转发请求，处于serve状态，请求会直接路由到 <code>Revision</code> 来降低网络性能开销。</p>
 <p>与 <code>queue-proxy</code> 不同的是：<code>Autoscaler</code>会主动并发现应用的pod，然后到指定端口拉取指标。而<code>Activator</code> 通过 websocket长连接主动实时上报指标给 <code>Autoscaler</code>，这样大大减少了网络通讯时延。</p>
 <h3 id="3-autoscaler">3. Autoscaler</h3>
 <p><code>Autoscaler</code> 主要负责收集来自<code>Activator</code> 指标进行实时的扩缩容决策。它是一个单独的pod，由逻辑上的三部分组成：</p>
@@ -319,7 +319,7 @@ Knative Serving 扩缩容系统的组件
 </li>
 </ul>
 <h2 id="总结">总结</h2>
-<p>Knative的扩缩容系统在演进过程中是曲折的，扩缩容流程冗长，这也是由于本身实现功能复杂导致的，该系统也存在的一些问题：</p>
+<p>Knative的自动扩缩容系统在演进过程中是曲折的，扩缩容流程冗长，这也是由于本身实现功能复杂导致的，该系统也存在的一些问题：</p>
 <ul>
 <li>
 <p>扩容实例过度依赖于k8s的控制面。特别是冷启动时（从零开始扩容），需要经过deployment漫长的调谐(reconcile)，代价是高昂的。社区也有讨论直接通过调用kubelet api启动Pod实例的尝试，提出了本地节点调度的方式<a href="https://github.com/knative/serving/projects/32">Scaling: Node Local Scheduling</a>。</p>

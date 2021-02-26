@@ -9,15 +9,15 @@
     <copyright>NovaHe</copyright>
     <lastBuildDate>Wed, 24 Feb 2021 23:32:15 +0800</lastBuildDate><atom:link href="https://novahe.github.io/categories/knative/index.xml" rel="self" type="application/rss+xml" />
     <item>
-      <title>Knative 扩缩容系统</title>
+      <title>Knative 自动扩缩容系统</title>
       <link>https://novahe.github.io/post/knative-serving-autoscaling-system/</link>
       <pubDate>Wed, 24 Feb 2021 23:32:15 +0800</pubDate>
       
       <guid>https://novahe.github.io/post/knative-serving-autoscaling-system/</guid>
-      <description>&lt;p&gt;&lt;strong&gt;扩缩容系统&lt;/strong&gt;是Serverless系统中关键的技术点之一，Knative可以说在这方面下足了功夫，本文介绍Knative扩缩容系统的设计原理及实现细节。&lt;/p&gt;
+      <description>&lt;p&gt;&lt;strong&gt;自动扩缩容系统&lt;/strong&gt;是Serverless系统中关键的技术点之一，Knative可以说在这方面下足了功夫，本文介绍Knative自动扩缩容系统的设计原理及实现细节。&lt;/p&gt;
 &lt;p&gt;全文主要从以下三个方面叙述：&lt;/p&gt;
 &lt;ul&gt;
-&lt;li&gt;Knative Serving 扩缩容系统的组件&lt;/li&gt;
+&lt;li&gt;Knative Serving 自动扩缩容系统的组件&lt;/li&gt;
 &lt;li&gt;组件涉及的API&lt;/li&gt;
 &lt;li&gt;冷启动和扩缩容的控制流、数据流&lt;/li&gt;
 &lt;/ul&gt;</description>
